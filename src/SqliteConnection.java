@@ -1,4 +1,6 @@
 import org.json.simple.JSONArray;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 import java.sql.Connection;
 import java.sql.Statement;
@@ -6,6 +8,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class SqliteConnection {
     private Connection connection;
@@ -179,6 +182,69 @@ public class SqliteConnection {
             }
         }
         statement.executeBatch();
+    }
+
+    public ArrayList<Practice> getPractices() throws SQLException {
+        var q = "SELECT id, title FROM Practices;";
+        var query = statement.executeQuery(q);
+        var result = new ArrayList<Practice>();
+        while (query.next()){
+            var id = query.getString("id");
+            var title = query.getString("title");
+            result.add(new Practice(title, id));
+        }
+        return result;
+    }
+
+    public ArrayList<Exercise> getExercises() throws SQLException {
+        var q = "SELECT id, title FROM Exercises;";
+        var query = statement.executeQuery(q);
+        var result = new ArrayList<Exercise>();
+        while (query.next()){
+            var id = query.getString("id");
+            var title = query.getString("title");
+            result.add(new Exercise(title, id));
+        }
+        return result;
+    }
+
+    public ArrayList<Theme> getThemes() throws SQLException, ParseException {
+        var titles = getThemesTitles();
+        var themes = new ArrayList<Theme>();
+        var allExercises = getExercises();
+        var allPractices = getPractices();
+        var q = "SELECT * FROM ThemesPracticesAndExercises;";
+        var query = statement.executeQuery(q);
+        while (query.next()){
+            var id = query.getString("id");
+            var title = titles.get(id);
+
+            var parser = new JSONParser();
+            var jsonExercises = (JSONArray) parser.parse(query.getString("exercises"));
+            var jsonPractices = (JSONArray) parser.parse(query.getString("practices"));
+            var practicesIds = new HashSet<String>(jsonPractices);
+            var exercisesIds = new HashSet<String>(jsonExercises);
+            var practices = new ArrayList<>(allPractices.stream().filter(p -> practicesIds.contains(p.getId())).toList());
+            var exercises = new ArrayList<>(allExercises.stream().filter(e -> exercisesIds.contains(e.getId())).toList());
+
+            themes.add(new Theme(title, id, practices, exercises));
+        }
+        return themes;
+    }
+
+    public ArrayList<Student> getStudents() throws SQLException {
+        var q = "SELECT * FROM Students;";
+        var query = statement.executeQuery(q);
+        var result = new ArrayList<Student>();
+        while (query.next()){
+            var firstname = query.getString("firstname");
+            var lastname = query.getString("lastname");
+            var ulearnID = query.getString("UlearnID");
+            var email = query.getString("email");
+            var group = query.getString("studentGroup");
+            result.add(new Student(firstname, lastname, ulearnID, email, group));
+        }
+        return result;
     }
 
     private HashMap<String, HashMap<String, Integer>> normalizeScores(HashMap<String, HashMap<String, Integer>> allScores) {
